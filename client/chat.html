@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <title>Chatsito</title>
+
+  <script type="module">
+    import { io } from 'https://cdn.socket.io/4.3.2/socket.io.esm.min.js';
+
+    // Obtener el nombre de usuario almacenado
+    const username = localStorage.getItem('username');
+    if (!username) {
+      alert('Error: No se ha encontrado un nombre de usuario. Por favor, inicia sesión.');
+      window.location.href = '/';  // Redirigir al login si no hay un nombre de usuario
+    }
+
+    const socket = io({
+      auth: {
+        username: username  // Pasar el nombre de usuario en la autenticación
+      }
+    });
+
+    const form = document.getElementById('form');
+    const input = document.getElementById('input');
+    const messages = document.getElementById('messages');
+
+    // Escuchar los mensajes del servidor y mostrarlos con nombre y hora
+    socket.on('chat message', (msg, serverOffset, username, time) => {
+      const item = `<li class="list-group-item message ${socket.auth.username === username ? 'my-message' : 'other-message'}">
+        <strong>${username}:</strong> ${msg} <br><small>${time}</small>
+      </li>`;
+      messages.insertAdjacentHTML('beforeend', item);
+      messages.scrollTop = messages.scrollHeight;
+    });
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      if (input.value) {
+        socket.emit('chat message', input.value);  // Enviar el mensaje al servidor
+        input.value = '';  // Limpiar el campo de entrada
+      }
+    });
+
+    // Función para cerrar sesión
+    const logout = () => {
+      localStorage.removeItem('username');  // Eliminar el nombre de usuario del localStorage
+      window.location.href = '/';  // Redirigir al formulario de inicio de sesión
+    };
+
+    document.getElementById('logoutButton').addEventListener('click', logout);  // Añadir el evento al botón de cerrar sesión
+  </script>
+
+  <style>
+    .message {
+      max-width: 75%;
+      margin-bottom: 10px;
+    }
+
+    .my-message {
+      align-self: flex-end;
+      background-color: #007bff;
+      color: white;
+      border-radius: 15px 15px 0 15px;
+      padding: 10px;
+      margin-left: auto;
+    }
+
+    .other-message {
+      align-self: flex-start;
+      background-color: #f1f1f1;
+      color: black;
+      border-radius: 15px 15px 15px 0;
+      padding: 10px;
+      margin-right: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container mt-5">
+    <h2 class="text-center mb-4">Chatsito</h2>
+    <button id="logoutButton" class="btn btn-danger mb-3">Cerrar Sesión</button>  <!-- Botón para cerrar sesión -->
+    <section id="chat" class="border rounded p-4 shadow">
+      <ul id="messages" class="list-group mb-3" style="max-height: 400px; overflow-y: auto;"></ul>
+      <form id="form" class="d-flex">
+        <input type="text" name="message" id="input" class="form-control me-2" placeholder="Escribe aquí..." autocomplete="off" />
+        <button class="btn btn-primary" type="submit">Enviar</button>
+      </form>
+    </section>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
