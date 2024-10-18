@@ -1,7 +1,7 @@
 import express from 'express';
 import logger from 'morgan';
 import dotenv from 'dotenv';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { MongoClient } from 'mongodb';
 import { Server } from 'socket.io';
 import { createServer } from 'node:http';
