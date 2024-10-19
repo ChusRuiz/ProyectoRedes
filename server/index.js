@@ -40,7 +40,6 @@ const connectToDB = async () => {
 
 await connectToDB();
 
-// Ruta para registrar nuevos usuarios
 app.post('/register', async (req, res) => {
   const { username, password } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -53,7 +52,6 @@ app.post('/register', async (req, res) => {
   }
 });
 
-// Ruta para iniciar sesión
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
   try {
@@ -72,7 +70,6 @@ app.post('/login', async (req, res) => {
   }
 });
 
-// Ruta para servir el archivo del chat después de iniciar sesión
 app.get('/chat', (req, res) => {
   res.sendFile(process.cwd() + '/client/chat.html');
 });
@@ -81,36 +78,33 @@ app.get('/', (req, res) => {
   res.sendFile(process.cwd() + '/client/login.html');
 });
 
-// Middleware de autenticación para Socket.IO
 io.use((socket, next) => {
   const username = socket.handshake.auth.username;
   if (!username) {
     return next(new Error('Error de autenticación: Falta el nombre de usuario.'));
   }
-  socket.username = username;  // Guardar el username en el socket
+  socket.username = username;  
   next();
 });
 
 io.on('connection', async (socket) => {
   console.log(`${socket.username} se ha conectado`);
 
-  // Recuperar y enviar todos los mensajes guardados cuando un usuario se conecta
   if (messagesCollection) {
     try {
-      const messages = await messagesCollection.find({}).toArray();  // Obtener todos los mensajes
+      const messages = await messagesCollection.find({}).toArray(); 
 
       messages.forEach((msg) => {
-        socket.emit('chat message', msg.content, msg._id.toString(), msg.user, msg.time);  // Enviar cada mensaje al cliente
+        socket.emit('chat message', msg.content, msg._id.toString(), msg.user, msg.time); 
       });
     } catch (error) {
       console.error('Error al recuperar los mensajes:', error);
     }
   }
 
-  // Almacenar el mensaje en la base de datos y enviarlo a todos los usuarios conectados
   socket.on('chat message', async (msg) => {
     const username = socket.username;
-    const time = new Date().toLocaleTimeString();  // Obtener la hora actual
+    const time = new Date().toLocaleTimeString();  
 
     if (!messagesCollection) {
       console.error('La colección de mensajes no está inicializada.');
@@ -121,10 +115,9 @@ io.on('connection', async (socket) => {
       const result = await messagesCollection.insertOne({
         content: msg,
         user: username,
-        time: time  // Guardar la hora del mensaje
+        time: time 
       });
 
-      // Emitir el mensaje a todos los clientes conectados
       io.emit('chat message', msg, result.insertedId.toString(), username, time);
     } catch (e) {
       console.error('Error al insertar el mensaje:', e);
