@@ -2,7 +2,7 @@ import express from 'express';
 import logger from 'morgan';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
-import { MongoClient } from 'mongodb';
+import { MongoClient, Binary } from 'mongodb';
 import { Server } from 'socket.io';
 import { createServer } from 'node:http';
 import bodyParser from 'body-parser';
@@ -31,7 +31,7 @@ const connectToDB = async () => {
     await client.connect();
     const db = client.db('chatDB');
     usersCollection = db.collection('users');
-    messagesCollection = db.collection('messages');
+    messagesCollection = db.collection('mensajes');
     console.log('Conexión a MongoDB exitosa');
   } catch (error) {
     console.error('Error conectando a MongoDB:', error);
@@ -83,7 +83,7 @@ io.use((socket, next) => {
   if (!username) {
     return next(new Error('Error de autenticación: Falta el nombre de usuario.'));
   }
-  socket.username = username;  
+  socket.username = username;
   next();
 });
 
@@ -91,37 +91,46 @@ io.on('connection', async (socket) => {
   console.log(`${socket.username} se ha conectado`);
 
   if (messagesCollection) {
-    try {
-      const messages = await messagesCollection.find({}).toArray(); 
-
-      messages.forEach((msg) => {
-        socket.emit('chat message', msg.content, msg._id.toString(), msg.user, msg.time); 
-      });
-    } catch (error) {
-      console.error('Error al recuperar los mensajes:', error);
-    }
+    const messages = await messagesCollection.find({}).toArray();
+    messages.forEach((msg) => {
+      if (msg.type === 'text') {
+        socket.emit('chat message', msg.content, msg._id.toString(), msg.user, msg.time);
+      } else if (msg.type === 'audio') {
+        socket.emit('audio message', msg.content.buffer, msg.user, msg.time);
+      }
+    });
   }
 
   socket.on('chat message', async (msg) => {
     const username = socket.username;
-    const time = new Date().toLocaleTimeString();  
+    const time = new Date().toLocaleTimeString();
 
-    if (!messagesCollection) {
-      console.error('La colección de mensajes no está inicializada.');
-      return;
-    }
+    if (!messagesCollection) return;
 
-    try {
-      const result = await messagesCollection.insertOne({
-        content: msg,
-        user: username,
-        time: time 
-      });
+    const result = await messagesCollection.insertOne({
+      type: 'text',
+      content: msg,
+      user: username,
+      time: time
+    });
 
-      io.emit('chat message', msg, result.insertedId.toString(), username, time);
-    } catch (e) {
-      console.error('Error al insertar el mensaje:', e);
-    }
+    io.emit('chat message', msg, result.insertedId.toString(), username, time);
+  });
+
+  socket.on('audio message', async (audioBuffer) => {
+    const username = socket.username;
+    const time = new Date().toLocaleTimeString();
+
+    if (!messagesCollection) return;
+
+    const result = await messagesCollection.insertOne({
+      type: 'audio',
+      content: new Binary(audioBuffer),
+      user: username,
+      time: time
+    });
+
+    io.emit('audio message', audioBuffer, username, time);
   });
 });
 
